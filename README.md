@@ -35,7 +35,44 @@ payment = client.create_payment(
 print(payment["paymentUrl"])
 ```
 
-Your secret key starts with `sk_proj_` — get it from **Developer → Projects** in your dashboard.
+Your secret key starts with `sk_proj_` (live) or `sk_test_proj_` (sandbox) — get it from **Developer → Projects** in your dashboard.
+
+`return_url` is required and must be an HTTPS URL.
+
+## Sandbox
+
+Pass a sandbox key (`sk_test_proj_…`) to test without moving real money. The client detects this automatically:
+
+```python
+client = MonCashClient(os.environ["MCC_SANDBOX_KEY"])
+print(client.is_sandbox)  # True
+```
+
+## Idempotency
+
+To safely retry a payment creation without risking a duplicate, pass an `idempotency_key`. It is sent as the `Idempotency-Key` header on the pay-create request:
+
+```python
+payment = client.create_payment(
+    1500,
+    "order-001",
+    return_url="https://yoursite.com/payment/success",
+    idempotency_key="order-001-attempt-1",
+)
+```
+
+## Custom Base URL
+
+The base URL defaults to the MonCashConnect production endpoint
+(`https://hvlmeoqyxaguzcujpmit.supabase.co/functions/v1`). Override it (e.g. for
+staging) with `base_url`:
+
+```python
+client = MonCashClient(
+    os.environ["MCC_SECRET_KEY"],
+    base_url="https://staging.example.com/functions/v1",
+)
+```
 
 ## Check Payment Status
 
@@ -149,10 +186,13 @@ async def moncash_webhook(
 from moncashconnect import MonCashClient, MonCashError
 
 try:
-    payment = client.create_payment(500, "order-42")
+    payment = client.create_payment(
+        500, "order-42", return_url="https://yoursite.com/payment/success"
+    )
 except MonCashError as exc:
     print(exc)             # "referenceId already exists for this project"
     print(exc.status_code) # 409
+    print(exc.code)        # Machine-readable code from the API, or None
     print(exc.context)     # Full API response dict, or None
 ```
 
